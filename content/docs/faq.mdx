@@ -1,0 +1,156 @@
+---
+title: 常见问题
+description: LLBot Manager 使用过程中的常见问题与解答。
+---
+
+# 常见问题
+
+## PMHQ 连接失败
+
+**问题描述**：实例启动后 PMHQ 状态为 `error`，LLBot 无法连接到 PMHQ。
+
+**排查步骤**：
+
+1. **检查 QQ 版本**：确认安装的 QQ 版本受 PMHQ 支持。某些 QQ 新版本可能尚未被 PMHQ 适配，尝试更换到已知支持的 QQ 版本。
+2. **检查 PMHQ 注入**：查看 PMHQ 日志，确认 PMHQ 是否成功注入 QQ：
+
+   ```bash
+   curl "http://127.0.0.1:9090/api/accounts/{id}/pmhq/logs?tail=200"
+   ```
+
+   如果日志中出现注入失败的信息，通常是 QQ 版本不兼容导致。
+3. **检查 QQ 路径**：确认 `qq_path` 配置指向正确的 QQ 可执行文件路径。
+4. **关闭 QQ 再启动**：确保 QQ 在 PMHQ 注入前没有运行。PMHQ 需要自行启动 QQ 进程进行注入。
+
+## 端口被占用
+
+**问题描述**：创建实例或启动实例时报端口冲突错误。
+
+**解决方案**：
+
+- Manager 在创建实例时会自动检测端口可用性并分配空闲端口，通常不会出现端口冲突。
+- 如果手动指定了端口（`pmhq_port` 参数）且该端口已被占用，Manager 会返回错误。请更换为其他端口或移除手动指定让 Manager 自动分配。
+- 查看当前已分配的端口：
+
+  ```bash
+  curl http://127.0.0.1:9090/api/accounts
+  ```
+
+## 忘记管理器端口
+
+**问题描述**：忘记了 Manager 的 HTTP 服务监听端口。
+
+**解决方案**：
+
+- Manager 默认端口为 **9090**。如果未通过 `--port` 参数修改，直接访问 `http://127.0.0.1:9090` 即可。
+- 如果启动时指定了其他端口，可以通过查看 Manager 启动日志找到实际监听端口。
+- 可以重新启动 Manager 并通过 `--port` 参数显式指定端口：
+
+  ```bash
+  llbot_manager --port 9090
+  ```
+
+## 实例启动失败
+
+**问题描述**：调用 `POST /api/accounts/{id}/start` 后，实例状态变为 `error`。
+
+**排查步骤**：
+
+1. **查看实例状态**：获取详细的运行状态信息：
+
+   ```bash
+   curl http://127.0.0.1:9090/api/accounts/{id}/status
+   ```
+
+   检查 `pmhq_status` 和 `llbot_status` 字段，确定是哪个组件出现了问题。
+
+2. **查看 PMHQ 日志**：PMHQ 日志通常包含最直接的错误信息：
+
+   ```bash
+   curl "http://127.0.0.1:9090/api/accounts/{id}/pmhq/logs?tail=200"
+   ```
+
+3. **常见原因**：
+   - PMHQ 下载失败（网络问题）
+   - QQ 版本不兼容
+   - PMHQ 端口被占用
+   - QQ 路径配置错误
+   - Node.js 环境缺失（LLBot 依赖 Node.js 22+）
+
+## PMHQ 下载失败
+
+**问题描述**：实例启动时卡在 PMHQ 下载阶段，或报下载失败错误。
+
+**解决方案**：
+
+PMHQ 从 GitHub Releases 下载，可能因网络问题导致下载失败。可以手动下载 PMHQ 并放置到正确目录：
+
+1. 前往 PMHQ 的 GitHub Releases 页面。
+2. 下载对应操作系统的 PMHQ 可执行文件。
+3. 将文件放置到 Manager 工作目录下的 `bin/pmhq/` 目录：
+
+   ```
+   llbot_manager_workspace/bin/pmhq/pmhq.exe    # Windows
+   llbot_manager_workspace/bin/pmhq/pmhq        # Linux / macOS
+   ```
+
+4. 重新启动实例，Manager 会检测到已存在的 PMHQ 文件并跳过下载。
+
+## 多实例 QQ 登录
+
+**问题描述**：如何让多个实例分别登录不同的 QQ 账号。
+
+**解决方案**：
+
+- 每个实例拥有独立的 QQ 登录会话，互不干扰。
+- 启动实例后，通过 `GET /api/accounts/{id}/qrcode` 获取该实例的登录二维码。
+- 使用手机 QQ 扫描二维码完成登录，每个实例登录不同的 QQ 账号。
+- 登录信息保存在各自实例的工作目录中，重启实例后无需重新扫码（除非登录态过期）。
+
+```bash
+# 分别获取实例 A 和实例 B 的二维码
+curl http://127.0.0.1:9090/api/accounts/{instance_a_id}/qrcode
+curl http://127.0.0.1:9090/api/accounts/{instance_b_id}/qrcode
+```
+
+## 代码保护
+
+**问题描述**：LLBot Manager 的核心代码是如何保护的，是否会被反编译。
+
+**解决方案**：
+
+- LLBot Manager 的核心代码通过 **Cython 编译** 进行保护。源码 `.py` 文件经过 Cython 编译器转换为 C 代码，再编译为二进制扩展模块（`.pyd` / `.so`）。
+- 编译后的 `.pyd` / `.so` 文件是二进制格式，无法通过常规工具直接反编译为可读的 Python 源码。
+- 最终通过 PyInstaller 打包为独立可执行文件，用户无需安装 Python 环境即可运行。
+- 编译流程详见 [架构设计 - Cython 编译保护](./architecture#cython-编译保护)。
+
+## Windows 防火墙
+
+**问题描述**：Windows 系统首次启动 Manager 时弹出防火墙提示，或外部无法访问 Manager API。
+
+**解决方案**：
+
+- Windows 防火墙可能会阻止 `llbot_manager.exe` 的网络访问。首次运行时如果弹出防火墙提示，请选择 **允许访问**。
+- 如果之前拒绝了访问，可以手动添加防火墙规则：
+
+  ```powershell
+  # 以管理员身份运行 PowerShell
+  New-NetFirewallRule -DisplayName "LLBot Manager" `
+      -Direction Inbound `
+      -Program "C:\path\to\llbot_manager.exe" `
+      -Action Allow
+  ```
+
+- 如果仅在本地使用（`--host 127.0.0.1`），通常不需要额外配置防火墙。
+- 如果需要从其他机器访问 Manager API（`--host 0.0.0.0`），请确保防火墙允许对应端口的入站连接。
+
+<callout type="warning" title="安全提示">
+Manager API 目前不支持认证。如果将 Manager 暴露到公网或不受信任的网络，存在被未授权访问的风险。建议仅在本地使用，或通过反向代理添加访问控制。
+</callout>
+
+## 其他资源
+
+- [架构设计](./architecture) — 了解整体架构和内部机制
+- [配置说明](./config) — 查看所有可配置项
+- [API 概览](./api_overview) — 查看完整的 API 端点列表
+- [LLBot (LuckyLilliaBot)](https://github.com/LLOneBot/LuckyLilliaBot) — LLBot 协议端框架源码

@@ -1,0 +1,410 @@
+---
+title: 实例管理 API
+description: 实例的创建、查询、更新、删除和生命周期管理接口详解。
+---
+
+# 实例管理 API
+
+本页面详细介绍 LLBot Manager 的实例管理接口，包括创建、查询、更新、删除以及启动、停止、重启等生命周期操作。
+
+## 创建实例
+
+### `POST /api/accounts`
+
+创建一个新的机器人实例。Manager 会自动分配端口并创建实例工作目录。
+
+#### 请求体参数
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+| --- | --- | --- | --- | --- |
+| `name` | string | 是 | — | 实例名称，用于标识和展示 |
+| `pmhq_mode` | string | 否 | `native` | PMHQ 运行模式：`native`（Manager 管理）或 `external`（外部管理） |
+| `llbot_entry` | string | 否 | 自动检测 | LLBot 入口路径 |
+| `pmhq_host` | string | 否 | `127.0.0.1` | PMHQ 监听地址 |
+| `pmhq_port` | integer | 否 | 自动分配 | PMHQ 通信端口（默认从 13000 开始分配） |
+| `qq_path` | string | 否 | 自动检测 | QQ 客户端路径 |
+| `pmhq_extra_args` | string | 否 | — | PMHQ 额外启动参数 |
+
+<callout type="info" title="端口自动分配">
+如果不指定 `pmhq_port`，Manager 会从 13000 开始自动分配一个可用端口。同时还会自动分配 WebUI 端口（3080+）、Satori 端口（5600+）和 Milky 端口（3010+）。
+</callout>
+
+#### 请求示例
+
+```bash
+curl -X POST http://127.0.0.1:9090/api/accounts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-bot",
+    "pmhq_mode": "native",
+    "pmhq_port": 13000,
+    "qq_path": "C:/Program Files/Tencent/QQ/QQ.exe"
+  }'
+```
+
+```powershell
+$body = @{
+    name = "my-bot"
+    pmhq_mode = "native"
+    pmhq_port = 13000
+    qq_path = "C:/Program Files/Tencent/QQ/QQ.exe"
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://127.0.0.1:9090/api/accounts" `
+    -Method Post `
+    -ContentType "application/json" `
+    -Body $body
+```
+
+#### 响应示例
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "my-bot",
+  "pmhq_mode": "native",
+  "llbot_entry": "/path/to/Core/src/index.js",
+  "pmhq_host": "127.0.0.1",
+  "pmhq_port": 13000,
+  "webui_port": 3080,
+  "satori_port": 5600,
+  "milky_port": 3010,
+  "qq_path": "C:/Program Files/Tencent/QQ/QQ.exe",
+  "pmhq_extra_args": "",
+  "status": "stopped",
+  "created_at": "2026-07-10T08:00:00Z",
+  "updated_at": "2026-07-10T08:00:00Z"
+}
+```
+
+## 列出所有实例
+
+### `GET /api/accounts`
+
+获取当前所有实例的列表。
+
+```bash
+curl http://127.0.0.1:9090/api/accounts
+```
+
+```powershell
+Invoke-RestMethod -Uri "http://127.0.0.1:9090/api/accounts"
+```
+
+#### 响应示例
+
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "my-bot",
+    "pmhq_mode": "native",
+    "pmhq_port": 13000,
+    "status": "running",
+    "created_at": "2026-07-10T08:00:00Z"
+  },
+  {
+    "id": "660e8400-e29b-41d4-a716-446655440001",
+    "name": "second-bot",
+    "pmhq_mode": "native",
+    "pmhq_port": 13001,
+    "status": "stopped",
+    "created_at": "2026-07-10T09:00:00Z"
+  }
+]
+```
+
+## 获取实例详情
+
+### `GET /api/accounts/{id}`
+
+获取指定实例的完整配置信息。
+
+```bash
+curl http://127.0.0.1:9090/api/accounts/550e8400-e29b-41d4-a716-446655440000
+```
+
+```powershell
+$instanceId = "550e8400-e29b-41d4-a716-446655440000"
+Invoke-RestMethod -Uri "http://127.0.0.1:9090/api/accounts/$instanceId"
+```
+
+#### 响应示例
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "my-bot",
+  "pmhq_mode": "native",
+  "llbot_entry": "/path/to/Core/src/index.js",
+  "pmhq_host": "127.0.0.1",
+  "pmhq_port": 13000,
+  "webui_port": 3080,
+  "satori_port": 5600,
+  "milky_port": 3010,
+  "qq_path": "C:/Program Files/Tencent/QQ/QQ.exe",
+  "pmhq_extra_args": "",
+  "status": "stopped",
+  "created_at": "2026-07-10T08:00:00Z",
+  "updated_at": "2026-07-10T08:00:00Z"
+}
+```
+
+## 更新实例配置
+
+### `PATCH /api/accounts/{id}`
+
+更新指定实例的配置。只有传入的字段才会被更新，未传入的字段保持不变。
+
+<callout type="warning" title="运行中更新">
+更新正在运行的实例配置时，部分配置可能需要重启实例才能生效。建议先停止实例再更新配置。
+</callout>
+
+#### 可更新参数
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `name` | string | 实例名称 |
+| `pmhq_mode` | string | PMHQ 运行模式 |
+| `llbot_entry` | string | LLBot 入口路径 |
+| `pmhq_host` | string | PMHQ 监听地址 |
+| `pmhq_port` | integer | PMHQ 通信端口 |
+| `qq_path` | string | QQ 客户端路径 |
+| `pmhq_extra_args` | string | PMHQ 额外启动参数 |
+
+#### 请求示例
+
+```bash
+curl -X PATCH http://127.0.0.1:9090/api/accounts/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-bot-renamed",
+    "pmhq_port": 13010
+  }'
+```
+
+```powershell
+$instanceId = "550e8400-e29b-41d4-a716-446655440000"
+$body = @{
+    name = "my-bot-renamed"
+    pmhq_port = 13010
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri "http://127.0.0.1:9090/api/accounts/$instanceId" `
+    -Method Patch `
+    -ContentType "application/json" `
+    -Body $body
+```
+
+#### 响应示例
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "my-bot-renamed",
+  "pmhq_port": 13010,
+  "status": "stopped",
+  "updated_at": "2026-07-10T08:30:00Z"
+}
+```
+
+## 删除实例
+
+### `DELETE /api/accounts/{id}`
+
+删除指定实例。删除前会自动停止该实例的所有进程，并清理实例工作目录。
+
+<callout type="warning" title="不可恢复">
+删除操作会清除实例的所有配置和数据，包括 LLBot 配置、PMHQ 配置和日志。此操作不可恢复，请谨慎执行。
+</callout>
+
+```bash
+curl -X DELETE http://127.0.0.1:9090/api/accounts/550e8400-e29b-41d4-a716-446655440000
+```
+
+```powershell
+$instanceId = "550e8400-e29b-41d4-a716-446655440000"
+Invoke-RestMethod -Uri "http://127.0.0.1:9090/api/accounts/$instanceId" `
+    -Method Delete
+```
+
+#### 响应示例
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "deleted",
+  "message": "实例已删除，工作目录已清理"
+}
+```
+
+## 启动实例
+
+### `POST /api/accounts/{id}/start`
+
+启动指定实例。启动过程会自动执行以下步骤：
+
+1. 检查并下载 PMHQ（如果尚未下载）
+2. 启动 PMHQ 进程，注入 QQ
+3. 检测 PMHQ 端口就绪
+4. 启动 LLBot 进程，连接 PMHQ
+
+```bash
+curl -X POST http://127.0.0.1:9090/api/accounts/550e8400-e29b-41d4-a716-446655440000/start
+```
+
+```powershell
+$instanceId = "550e8400-e29b-41d4-a716-446655440000"
+Invoke-RestMethod -Uri "http://127.0.0.1:9090/api/accounts/$instanceId/start" `
+    -Method Post
+```
+
+#### 响应示例
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "starting",
+  "message": "实例启动中，正在准备 PMHQ..."
+}
+```
+
+## 停止实例
+
+### `POST /api/accounts/{id}/stop`
+
+停止指定实例。停止操作会先终止 LLBot 进程，再终止 PMHQ 进程，确保进程树被完整清理。
+
+```bash
+curl -X POST http://127.0.0.1:9090/api/accounts/550e8400-e29b-41d4-a716-446655440000/stop
+```
+
+```powershell
+$instanceId = "550e8400-e29b-41d4-a716-446655440000"
+Invoke-RestMethod -Uri "http://127.0.0.1:9090/api/accounts/$instanceId/stop" `
+    -Method Post
+```
+
+#### 响应示例
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "stopped",
+  "message": "实例已停止"
+}
+```
+
+## 重启实例
+
+### `POST /api/accounts/{id}/restart`
+
+重启指定实例。相当于先停止再启动，会重新初始化 PMHQ 和 LLBot 进程。
+
+```bash
+curl -X POST http://127.0.0.1:9090/api/accounts/550e8400-e29b-41d4-a716-446655440000/restart
+```
+
+```powershell
+$instanceId = "550e8400-e29b-41d4-a716-446655440000"
+Invoke-RestMethod -Uri "http://127.0.0.1:9090/api/accounts/$instanceId/restart" `
+    -Method Post
+```
+
+#### 响应示例
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "starting",
+  "message": "实例重启中..."
+}
+```
+
+## 查询运行状态
+
+### `GET /api/accounts/{id}/status`
+
+获取指定实例的实时运行状态，包括 PMHQ 和 LLBot 进程的运行情况。
+
+```bash
+curl http://127.0.0.1:9090/api/accounts/550e8400-e29b-41d4-a716-446655440000/status
+```
+
+```powershell
+$instanceId = "550e8400-e29b-41d4-a716-446655440000"
+Invoke-RestMethod -Uri "http://127.0.0.1:9090/api/accounts/$instanceId/status"
+```
+
+#### 响应字段说明
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | string | 实例 ID |
+| `status` | string | 实例整体状态：`stopped` / `starting` / `running` / `error` |
+| `pmhq_status` | string | PMHQ 进程状态：`stopped` / `running` / `error` |
+| `llbot_status` | string | LLBot 进程状态：`stopped` / `running` / `error` |
+| `pmhq_port` | integer | PMHQ 通信端口 |
+| `qq_logged_in` | boolean | QQ 是否已登录 |
+| `uptime` | integer | 运行时长（秒） |
+
+#### 响应示例
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "running",
+  "pmhq_status": "running",
+  "llbot_status": "running",
+  "pmhq_port": 13000,
+  "qq_logged_in": true,
+  "uptime": 3600
+}
+```
+
+## 获取登录二维码
+
+### `GET /api/accounts/{id}/qrcode`
+
+获取实例的 QQ 登录二维码。二维码以 Base64 编码的 PNG 图片返回。
+
+```bash
+curl http://127.0.0.1:9090/api/accounts/550e8400-e29b-41d4-a716-446655440000/qrcode
+```
+
+```powershell
+$instanceId = "550e8400-e29b-41d4-a716-446655440000"
+$response = Invoke-RestMethod -Uri "http://127.0.0.1:9090/api/accounts/$instanceId/qrcode"
+
+# 将 Base64 图片保存为文件
+$bytes = [Convert]::FromBase64String($response.qrcode_base64)
+[IO.File]::WriteAllBytes("qrcode.png", $bytes)
+Write-Host "二维码已保存为 qrcode.png"
+```
+
+#### 响应字段说明
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | string | 实例 ID |
+| `has_qrcode` | boolean | 是否有可用的二维码 |
+| `qrcode_base64` | string | Base64 编码的 PNG 图片数据（仅当 `has_qrcode` 为 `true` 时存在） |
+
+#### 响应示例
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "has_qrcode": true,
+  "qrcode_base64": "iVBORw0KGgoAAAANSUhEUgAA..."
+}
+```
+
+<callout type="info" title="二维码时效">
+QQ 登录二维码有时效限制，超时后需要重新获取。如果扫码后提示二维码已过期，请重新调用此接口获取新的二维码。
+</callout>
+
+## 下一步
+
+- [PMHQ 管理 API](./api_pmhq) — 了解 PMHQ 进程的管理接口
+- [架构设计](./architecture) — 了解 Manager 的内部架构

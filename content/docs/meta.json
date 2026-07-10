@@ -1,0 +1,18 @@
+{
+  "title": "指南",
+  "pages": [
+    "---开始---",
+    "introduction",
+    "install",
+    "quickstart",
+    "---API 文档---",
+    "api_overview",
+    "api_instances",
+    "api_pmhq",
+    "---进阶---",
+    "architecture",
+    "config",
+    "---其他---",
+    "faq"
+  ]
+}

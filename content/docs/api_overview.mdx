@@ -1,0 +1,105 @@
+---
+title: API 概览
+description: LLBot Manager RESTful HTTP API 端点总览。
+---
+
+# API 概览
+
+LLBot Manager 提供了一套 RESTful HTTP API，用于管理机器人实例的完整生命周期。所有 API 均返回 JSON 格式数据。
+
+## 基础信息
+
+| 项目 | 说明 |
+| --- | --- |
+| 基础地址 | `http://127.0.0.1:9090`（默认端口 9090） |
+| 请求格式 | `application/json` |
+| 响应格式 | `application/json` |
+| 认证 | 无需认证（本地使用） |
+
+<callout type="info" title="端口说明">
+默认端口为 `9090`，可通过启动参数 `--port` 修改。如果你修改了端口，请将下文示例中的 `9090` 替换为你的实际端口。
+</callout>
+
+## 端点列表
+
+LLBot Manager 共提供 14 个 API 端点，按功能分为管理器状态、实例管理和 PMHQ 管理三类：
+
+### 管理器状态
+
+| 方法 | 路径 | 描述 | 标签 |
+| --- | --- | --- | --- |
+| `GET` | `/api/status` | 获取管理器运行状态 | 管理器 |
+
+### 实例管理
+
+| 方法 | 路径 | 描述 | 标签 |
+| --- | --- | --- | --- |
+| `POST` | `/api/accounts` | 创建实例 | 实例 |
+| `GET` | `/api/accounts` | 列出所有实例 | 实例 |
+| `GET` | `/api/accounts/{id}` | 获取实例详情 | 实例 |
+| `PATCH` | `/api/accounts/{id}` | 更新实例配置 | 实例 |
+| `DELETE` | `/api/accounts/{id}` | 删除实例 | 实例 |
+| `POST` | `/api/accounts/{id}/start` | 启动实例 | 实例 |
+| `POST` | `/api/accounts/{id}/stop` | 停止实例 | 实例 |
+| `POST` | `/api/accounts/{id}/restart` | 重启实例 | 实例 |
+| `GET` | `/api/accounts/{id}/status` | 获取实例运行状态 | 实例 |
+| `GET` | `/api/accounts/{id}/qrcode` | 获取登录二维码 | 实例 |
+
+### PMHQ 管理
+
+| 方法 | 路径 | 描述 | 标签 |
+| --- | --- | --- | --- |
+| `POST` | `/api/accounts/{id}/pmhq/start` | 启动 PMHQ 进程 | PMHQ |
+| `POST` | `/api/accounts/{id}/pmhq/stop` | 停止 PMHQ 进程 | PMHQ |
+| `GET` | `/api/accounts/{id}/pmhq/logs` | 获取 PMHQ 日志 | PMHQ |
+
+## 通用响应格式
+
+### 成功响应
+
+所有成功响应的 HTTP 状态码为 `200`，响应体为 JSON 格式，具体结构因端点而异。
+
+### 错误响应
+
+当请求出错时，HTTP 状态码为 `4xx` 或 `5xx`，响应体格式如下：
+
+```json
+{
+  "detail": "错误描述信息"
+}
+```
+
+常见错误状态码：
+
+| 状态码 | 说明 |
+| --- | --- |
+| `404` | 实例不存在（ID 错误或已删除） |
+| `400` | 请求参数错误 |
+| `409` | 操作冲突（如实例已在运行中时再次启动） |
+| `500` | 服务器内部错误 |
+
+## 快速验证
+
+启动 Manager 后，可以用以下命令快速验证 API 是否可用：
+
+```bash
+# 获取管理器状态
+curl http://127.0.0.1:9090/api/status
+
+# 列出当前所有实例
+curl http://127.0.0.1:9090/api/accounts
+```
+
+```powershell
+# PowerShell
+# 获取管理器状态
+Invoke-RestMethod -Uri "http://127.0.0.1:9090/api/status"
+
+# 列出当前所有实例
+Invoke-RestMethod -Uri "http://127.0.0.1:9090/api/accounts"
+```
+
+## 详细文档
+
+- [实例管理 API](./api_instances) — 实例的创建、查询、更新、删除和生命周期管理
+- [PMHQ 管理 API](./api_pmhq) — PMHQ 进程的启动、停止和日志查看

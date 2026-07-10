@@ -1,0 +1,191 @@
+---
+title: 安装指南
+description: 安装并启动 LLBot Manager，了解目录结构和启动参数。
+---
+
+# 安装指南
+
+本指南将帮助你完成 LLBot Manager 的安装和首次启动。
+
+## 前置要求
+
+在安装 LLBot Manager 之前，请确保你的环境满足以下条件：
+
+| 要求 | 说明 |
+| --- | --- |
+| 操作系统 | Windows 10/11、Linux 或 macOS |
+| QQ 客户端 | Windows 用户需提前安装 QQ（PMHQ 通过注入 QQ 工作） |
+| Node.js | 22 及以上版本（Core / LLBot 源码运行依赖） |
+| 网络 | 首次启动需联网（用于自动下载 PMHQ） |
+
+<callout type="warning" title="QQ 版本要求">
+PMHQ 依赖特定版本的 QQ 客户端才能正常注入。请确保安装的 QQ 版本受 PMHQ 支持。如果 PMHQ 注入失败，请尝试更换 QQ 版本。
+</callout>
+
+## 下载
+
+### 从 GitHub Releases 下载
+
+LLBot Manager 提供编译好的可执行文件，可直接从 GitHub Releases 页面下载：
+
+1. 前往项目的 GitHub Releases 页面。
+2. 根据你的操作系统选择对应的发布包：
+   - **Windows**：`llbot_manager_windows_x64.zip`
+   - **Linux**：`llbot_manager_linux_x64.tar.gz`
+   - **macOS**：`llbot_manager_macos_x64.tar.gz`
+3. 下载并解压到任意目录。
+
+### 从源码构建
+
+如果你需要从源码构建，项目使用 Cython 编译核心代码，再通过 PyInstaller 打包为独立可执行文件：
+
+```bash
+# 克隆仓库（包含 Core 子模块）
+git clone --recurse-submodules https://github.com/LLOneBot/LLBot_Manager.git
+cd LLBot_Manager
+
+# 安装依赖
+pip install -r requirements.txt
+
+# Cython 编译
+python build.py --compile
+
+# PyInstaller 打包
+python build.py --package
+```
+
+## 目录结构
+
+解压或构建完成后，目录结构如下：
+
+```
+LLBot_Manager/
+├── dist/
+│   └── llbot_manager/          # 管理器可执行文件目录
+│       ├── llbot_manager.exe   # 管理器主程序 (Windows)
+│       ├── llbot_manager        # 管理器主程序 (Linux/macOS)
+│       ├── _internal/          # PyInstaller 内部依赖
+│       └── ...
+├── Core/                       # LLBot 源码 (git submodule)
+│   ├── src/
+│   ├── package.json
+│   └── ...
+├── llbot_manager_workspace/    # 运行时工作目录
+│   ├── state.json              # 实例配置持久化文件
+│   ├── bin/
+│   │   └── pmhq/               # PMHQ 可执行文件 (自动下载)
+│   └── instances/              # 各实例工作目录
+│       └── {instance_id}/
+│           ├── llbot/          # LLBot 运行目录
+│           ├── pmhq_config.json
+│           └── ...
+├── build.py                    # 构建脚本
+└── requirements.txt
+```
+
+| 目录 / 文件 | 说明 |
+| --- | --- |
+| `dist/llbot_manager/` | 管理器可执行文件及其依赖，由 PyInstaller 打包生成 |
+| `Core/` | LLBot 源码目录，通过 git submodule 引用自 [LuckyLilliaBot](https://github.com/LLOneBot/LuckyLilliaBot) |
+| `llbot_manager_workspace/` | 运行时自动创建的工作目录，存放实例数据和 PMHQ 二进制文件 |
+| `state.json` | 持久化所有实例的配置信息 |
+
+## 启动
+
+### Windows
+
+直接运行可执行文件即可：
+
+```powershell
+# 进入管理器目录
+cd dist\llbot_manager
+
+# 启动管理器（默认端口 9090）
+.\llbot_manager.exe
+```
+
+### Linux / macOS
+
+Linux 和 macOS 用户有两种方式：
+
+**方式一：使用 PyInstaller 产物**
+
+```bash
+# 进入管理器目录
+cd dist/llbot_manager
+
+# 赋予执行权限
+chmod +x llbot_manager
+
+# 启动管理器
+./llbot_manager
+```
+
+**方式二：使用 Python 环境直接运行**
+
+如果没有预编译产物，可以在 Python 环境中直接运行：
+
+```bash
+# 安装依赖
+pip install -r requirements.txt
+
+# 启动管理器
+python -m llbot_manager
+```
+
+## 首次启动
+
+首次启动时，Manager 会执行以下初始化操作：
+
+1. **自动检测 QQ 路径**：Manager 会在系统常见路径中搜索 QQ 客户端的安装位置。如果无法自动检测到，可以在创建实例时通过 `qq_path` 参数手动指定。
+2. **创建工作目录**：自动创建 `llbot_manager_workspace/` 及其子目录结构。
+3. **PMHQ 首次下载**：当首次创建并启动实例时，Manager 会自动从 GitHub Releases 下载 PMHQ 可执行文件到 `bin/pmhq/` 目录。下载完成后无需重复下载。
+
+<callout type="info" title="PMHQ 下载">
+PMHQ 的下载是按需触发的。只有在实例首次启动时才会执行下载，后续实例启动会直接使用已下载的 PMHQ 二进制文件。
+</callout>
+
+启动成功后，你将看到类似以下输出：
+
+```
+INFO:     LLBot Manager 启动中...
+INFO:     监听地址: 0.0.0.0:9090
+INFO:     工作目录: /path/to/llbot_manager_workspace
+INFO:     Uvicorn running on http://0.0.0.0:9090
+```
+
+此时 Manager 已在 `http://127.0.0.1:9090` 提供 HTTP API 服务。
+
+## 启动参数
+
+LLBot Manager 支持以下命令行参数和环境变量：
+
+| 参数 | 环境变量 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `--host` | `LLBOT_HOST` | `0.0.0.0` | Manager HTTP 服务监听地址 |
+| `--port` | `LLBOT_PORT` | `9090` | Manager HTTP 服务监听端口 |
+| `--llbot-entry` | `LLBOT_ENTRY` | 自动检测 | LLBot 入口路径（Core 源码位置） |
+| `--pmhq-binary` | `LLBOT_PMHQ_BINARY` | 自动检测 | PMHQ 可执行文件路径 |
+
+### 使用示例
+
+```bash
+# 指定监听端口
+llbot_manager --port 8080
+
+# 仅本地访问
+llbot_manager --host 127.0.0.1 --port 9090
+
+# 手动指定 LLBot 入口和 PMHQ 路径
+llbot_manager --llbot-entry ./Core/src/index.js --pmhq-binary ./bin/pmhq/pmhq.exe
+```
+
+```powershell
+# Windows PowerShell 示例
+.\llbot_manager.exe --host 127.0.0.1 --port 9090
+```
+
+## 下一步
+
+- [快速开始](./quickstart) — 创建并启动你的第一个实例
+- [API 概览](./api_overview) — 查看完整的 API 端点列表
