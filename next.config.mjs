@@ -8,6 +8,8 @@ const config = {
   output: 'export',
   reactStrictMode: true,
   images: { unoptimized: true },
+  basePath: '/LLBot_Manager',
+  assetPrefix: '/LLBot_Manager/',
 };
 
 export default withMDX(config);

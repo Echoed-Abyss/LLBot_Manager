@@ -10,7 +10,12 @@ export function baseOptions(): BaseLayoutProps {
   return {
     nav: {
       title: 'LLBot Manager',
+      url: '/LLBot_Manager',
     },
+    links: [
+      { text: '文档', url: '/LLBot_Manager/guide/introduction' },
+      { text: 'GitHub', url: 'https://github.com/Echoed-Abyss/LLBot_Manager' },
+    ],
     githubUrl: 'https://github.com/Echoed-Abyss/LLBot_Manager',
   };
 }
