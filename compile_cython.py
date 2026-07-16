@@ -31,6 +31,7 @@ MODULES = [
     "core",
     "api",
     "main",
+    "offset_patcher",
 ]
 
 
